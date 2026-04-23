@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
       campaign: body.campaign || "",
       subCampaign: body.subCampaign || "",
       preparedBy: body.preparedBy || "Alyssa Pucek",
-      avatarDataUrl: body.avatarDataUrl || null,
       posts: body.posts,
       createdAt: body.createdAt || now,
       updatedAt: now,

@@ -14,6 +14,13 @@ import type { Preview, PreviewSummary } from "./types";
 
 const hasKv =
   !!process.env.KV_REST_API_URL && !!process.env.KV_REST_API_TOKEN;
+const onVercel = !!process.env.VERCEL;
+
+function requireKvMessage(): never {
+  throw new Error(
+    "Preview storage is not configured. Provision Vercel KV (Redis) in the Vercel dashboard — that automatically sets KV_REST_API_URL and KV_REST_API_TOKEN — then redeploy."
+  );
+}
 
 // --- Vercel KV adapter ---
 
@@ -120,17 +127,25 @@ function toSummary(p: Preview): PreviewSummary {
 }
 
 export async function listPreviews(): Promise<PreviewSummary[]> {
-  return hasKv ? kvList() : localList();
+  if (hasKv) return kvList();
+  if (onVercel) requireKvMessage();
+  return localList();
 }
 
 export async function getPreview(id: string): Promise<Preview | null> {
-  return hasKv ? kvGet(id) : localGet(id);
+  if (hasKv) return kvGet(id);
+  if (onVercel) requireKvMessage();
+  return localGet(id);
 }
 
 export async function savePreview(preview: Preview): Promise<void> {
-  return hasKv ? kvSave(preview) : localSave(preview);
+  if (hasKv) return kvSave(preview);
+  if (onVercel) requireKvMessage();
+  return localSave(preview);
 }
 
 export async function deletePreview(id: string): Promise<void> {
-  return hasKv ? kvDelete(id) : localDelete(id);
+  if (hasKv) return kvDelete(id);
+  if (onVercel) requireKvMessage();
+  return localDelete(id);
 }

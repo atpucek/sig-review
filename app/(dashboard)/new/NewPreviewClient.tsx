@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import PostEditor from "@/components/PostEditor";
 import PostMockups from "@/components/PostMockups";
+import PostHeader from "@/components/PostHeader";
 import type { Post, Preview } from "@/lib/types";
 import type { OrganicPost } from "@/app/api/smartsheet/posts/route";
 
@@ -24,27 +26,25 @@ function newPost(): Post {
   };
 }
 
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onerror = () => reject(r.error);
-    r.onload = () => resolve(String(r.result));
-    r.readAsDataURL(file);
-  });
-}
-
 export default function NewPreviewClient() {
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("id");
+  const router = useRouter();
+
+  const [id, setId] = useState<string | null>(editId);
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
+
   const [title, setTitle] = useState("");
   const [campaign, setCampaign] = useState("");
   const [subCampaign, setSubCampaign] = useState("");
   const [preparedBy, setPreparedBy] = useState("Alyssa Pucek");
-  const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null);
   const [posts, setPosts] = useState<Post[]>([newPost()]);
 
   const [campaigns, setCampaigns] = useState<string[]>([]);
   const [smartsheetPosts, setSmartsheetPosts] = useState<OrganicPost[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingPreview, setLoadingPreview] = useState(!!editId);
 
   const [saving, setSaving] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
@@ -79,7 +79,39 @@ export default function NewPreviewClient() {
     };
   }, []);
 
-  // Sub-campaign options: derive from loaded Smartsheet posts, scoped to selected campaign
+  // Load existing preview when /new?id=…
+  useEffect(() => {
+    if (!editId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/previews/${editId}`);
+        const data = await resp.json();
+        if (cancelled) return;
+        if (!resp.ok) {
+          setLoadError(data.error || "Failed to load preview.");
+          return;
+        }
+        const p = data.preview as Preview;
+        setId(p.id);
+        setCreatedAt(p.createdAt);
+        setTitle(p.title);
+        setCampaign(p.campaign || "");
+        setSubCampaign(p.subCampaign || "");
+        setPreparedBy(p.preparedBy);
+        setPosts(p.posts.length ? p.posts : [newPost()]);
+      } catch (e) {
+        if (!cancelled) setLoadError((e as Error).message);
+      } finally {
+        if (!cancelled) setLoadingPreview(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editId]);
+
+  // Sub-campaign options
   const subCampaignOptions = useMemo(() => {
     const set = new Set<string>();
     for (const p of smartsheetPosts) {
@@ -98,15 +130,12 @@ export default function NewPreviewClient() {
   function updatePost(index: number, next: Post) {
     setPosts((arr) => arr.map((p, i) => (i === index ? next : p)));
   }
-
   function addPost() {
     setPosts((arr) => [...arr, newPost()]);
   }
-
   function removePost(index: number) {
     setPosts((arr) => arr.filter((_, i) => i !== index));
   }
-
   function movePost(index: number, dir: -1 | 1) {
     setPosts((arr) => {
       const target = index + dir;
@@ -115,15 +144,6 @@ export default function NewPreviewClient() {
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
-  }
-
-  async function handleAvatar(file: File) {
-    if (file.size > 4 * 1024 * 1024) {
-      alert("Avatar must be under 4MB.");
-      return;
-    }
-    const src = await readAsDataUrl(file);
-    setAvatarDataUrl(src);
   }
 
   async function publish() {
@@ -137,14 +157,13 @@ export default function NewPreviewClient() {
     }
     setSaving(true);
     try {
-      const body: Omit<Preview, "id" | "createdAt" | "updatedAt"> & {
-        id?: string;
-      } = {
+      const body = {
+        id: id || undefined,
+        createdAt: createdAt || undefined,
         title: title.trim(),
         campaign: campaign === "Other / Manual" ? "" : campaign,
         subCampaign: subCampaign === "Other / Manual" ? "" : subCampaign,
         preparedBy: preparedBy.trim() || "Alyssa Pucek",
-        avatarDataUrl,
         posts,
       };
       const resp = await fetch("/api/previews", {
@@ -156,8 +175,12 @@ export default function NewPreviewClient() {
       if (!resp.ok) {
         throw new Error(data.error || "Failed to save.");
       }
+      setId(data.preview.id);
+      setCreatedAt(data.preview.createdAt);
       const url = `${window.location.origin}/preview/${data.preview.id}`;
       setPublishedUrl(url);
+      // Reflect the id in the URL so editing continues against this preview
+      router.replace(`/new?id=${data.preview.id}`);
     } catch (e) {
       alert((e as Error).message);
     } finally {
@@ -176,6 +199,23 @@ export default function NewPreviewClient() {
     }
   }
 
+  const postHeaderCampaign =
+    subCampaign && subCampaign !== "Other / Manual"
+      ? subCampaign
+      : campaign && campaign !== "Other / Manual"
+      ? campaign
+      : "";
+
+  if (loadingPreview) {
+    return (
+      <main
+        style={{ padding: "40px", textAlign: "center", color: "#71717a" }}
+      >
+        Loading preview…
+      </main>
+    );
+  }
+
   return (
     <main
       style={{
@@ -187,7 +227,6 @@ export default function NewPreviewClient() {
         overflow: "hidden",
       }}
     >
-      {/* LEFT: Builder */}
       <section
         style={{
           overflowY: "auto",
@@ -213,7 +252,7 @@ export default function NewPreviewClient() {
                 letterSpacing: "-0.01em",
               }}
             >
-              New Preview
+              {editId || id ? "Edit Preview" : "New Preview"}
             </div>
             <Link
               href="/"
@@ -229,7 +268,11 @@ export default function NewPreviewClient() {
             disabled={saving}
             onClick={publish}
           >
-            {saving ? "Publishing…" : "Publish Preview"}
+            {saving
+              ? "Publishing…"
+              : id
+              ? "Update Preview"
+              : "Publish Preview"}
           </button>
         </div>
 
@@ -243,7 +286,7 @@ export default function NewPreviewClient() {
             }}
           >
             <div style={{ fontWeight: 700, marginBottom: 4 }}>
-              ✓ Preview published
+              ✓ Preview {createdAt && id && publishedUrl ? "saved" : "published"}
             </div>
             <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
               Anyone with this link can view — no login required.
@@ -281,19 +324,12 @@ export default function NewPreviewClient() {
               fontSize: 13,
             }}
           >
-            Smartsheet load error: {loadError}
+            Load error: {loadError}
           </div>
         )}
 
-        {/* Document info */}
         <div className="card" style={{ padding: 18 }}>
-          <div
-            style={{
-              fontWeight: 700,
-              marginBottom: 14,
-              fontSize: 14,
-            }}
-          >
+          <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 14 }}>
             Document info
           </div>
 
@@ -356,80 +392,17 @@ export default function NewPreviewClient() {
               </div>
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-              }}
-            >
-              <div>
-                <div className="label">Prepared by</div>
-                <input
-                  className="input"
-                  value={preparedBy}
-                  onChange={(e) => setPreparedBy(e.target.value)}
-                />
-              </div>
-              <div>
-                <div className="label">Page avatar</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 999,
-                      overflow: "hidden",
-                      background: "var(--sig-red)",
-                      color: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 800,
-                      fontSize: 12,
-                    }}
-                  >
-                    {avatarDataUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={avatarDataUrl}
-                        alt=""
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
-                    ) : (
-                      "SIG"
-                    )}
-                  </div>
-                  <label className="btn" style={{ cursor: "pointer" }}>
-                    Upload
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: "none" }}
-                      onChange={(e) =>
-                        e.target.files?.[0] && handleAvatar(e.target.files[0])
-                      }
-                    />
-                  </label>
-                  {avatarDataUrl && (
-                    <button
-                      className="btn btn-ghost"
-                      onClick={() => setAvatarDataUrl(null)}
-                    >
-                      Reset
-                    </button>
-                  )}
-                </div>
-              </div>
+            <div>
+              <div className="label">Prepared by</div>
+              <input
+                className="input"
+                value={preparedBy}
+                onChange={(e) => setPreparedBy(e.target.value)}
+              />
             </div>
           </div>
         </div>
 
-        {/* Posts */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {posts.map((post, i) => (
             <PostEditor
@@ -452,7 +425,6 @@ export default function NewPreviewClient() {
         </div>
       </section>
 
-      {/* RIGHT: Live mockup panel */}
       <section
         style={{
           overflowY: "auto",
@@ -487,20 +459,12 @@ export default function NewPreviewClient() {
 
         {posts.map((post, i) => (
           <div key={post.id}>
-            <div
-              className="muted"
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                marginBottom: 10,
-              }}
-            >
-              Post {i + 1}
-              {post.publishDate ? ` · ${post.publishDate}` : ""}
-            </div>
-            <PostMockups post={post} avatarSrc={avatarDataUrl} compact />
+            <PostHeader
+              index={i}
+              campaign={postHeaderCampaign}
+              publishDate={post.publishDate}
+            />
+            <PostMockups post={post} compact />
           </div>
         ))}
       </section>

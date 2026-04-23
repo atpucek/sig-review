@@ -106,6 +106,7 @@ export default function DashboardClient({
                     display: "flex",
                     gap: 6,
                     justifyContent: "flex-end",
+                    flexWrap: "wrap",
                   }}
                 >
                   <button
@@ -115,12 +116,15 @@ export default function DashboardClient({
                   >
                     {copied === p.id ? "✓ Copied" : "Copy Link"}
                   </button>
+                  <Link href={`/new?id=${p.id}`} className="btn">
+                    Edit
+                  </Link>
                   <Link
                     href={`/preview/${p.id}`}
                     className="btn"
                     target="_blank"
                   >
-                    Preview
+                    View
                   </Link>
                   <button
                     className="btn btn-danger"

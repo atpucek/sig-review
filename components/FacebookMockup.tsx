@@ -3,15 +3,10 @@
 import type { Post } from "@/lib/types";
 import Avatar from "./Avatar";
 import CopyRenderer from "./CopyRenderer";
+import VideoPlayer from "./VideoPlayer";
 import { formatDate } from "@/lib/text";
 
-export default function FacebookMockup({
-  post,
-  avatarSrc,
-}: {
-  post: Post;
-  avatarSrc: string | null;
-}) {
+export default function FacebookMockup({ post }: { post: Post }) {
   const images = post.media.filter((m) => m.kind === "image");
   const video = post.media.find((m) => m.kind === "video");
 
@@ -26,7 +21,7 @@ export default function FacebookMockup({
           gap: 10,
         }}
       >
-        <Avatar src={avatarSrc} />
+        <Avatar />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>
             SIG
@@ -83,35 +78,7 @@ export default function FacebookMockup({
       {(post.format === "carousel" || (post.format === "single" && images.length > 1)) &&
         images.length > 0 && <FacebookGrid images={images.map((i) => i.src)} />}
 
-      {post.format === "video" && (
-        <div
-          style={{
-            position: "relative",
-            background: "#000",
-            aspectRatio: "16 / 9",
-          }}
-        >
-          {video?.src ? (
-            <video
-              src={video.src}
-              controls
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
-            />
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: "100%",
-                color: "#fff",
-              }}
-            >
-              ▶
-            </div>
-          )}
-        </div>
-      )}
+      {post.format === "video" && video && <VideoPlayer video={video} />}
 
       {/* Engagement */}
       <div

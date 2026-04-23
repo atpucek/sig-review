@@ -11,6 +11,14 @@ const VARIANT_COLORS: Record<Variant, string> = {
   networked: "#0d2a52",
 };
 
+// LinkedIn renders @"Name" mentions bold; Facebook renders them plain weight.
+const MENTION_BOLD: Record<Variant, boolean> = {
+  linkedin: true,
+  facebook: false,
+  instagram: false,
+  networked: false,
+};
+
 export default function CopyRenderer({
   copy,
   variant,
@@ -23,8 +31,9 @@ export default function CopyRenderer({
   extraMentions?: string;
 }) {
   const accent = VARIANT_COLORS[variant];
+  const mentionBold = MENTION_BOLD[variant];
 
-  // Combine copy with explicit hashtags/mentions fields so they render uniformly
+  // Combine copy with explicit hashtags/mentions trailer fields
   const trailer: string[] = [];
   if (extraHashtags && extraHashtags.trim()) {
     const tags = extraHashtags
@@ -35,11 +44,19 @@ export default function CopyRenderer({
     if (tags.length) trailer.push(tags.join(" "));
   }
   if (extraMentions && extraMentions.trim()) {
+    // Treat each line of the mentions field as a separate mention.
+    // Bare names (no quotes, no @) are auto-wrapped as @"…" so they render
+    // the same as quoted mentions inside the copy.
     const mentions = extraMentions
-      .split(/[\s,]+/)
+      .split(/\n|,/)
       .map((m) => m.trim())
       .filter(Boolean)
-      .map((m) => (m.startsWith("@") ? m : `@${m}`));
+      .map((m) => {
+        if (m.startsWith('@"') && m.endsWith('"')) return m;
+        const stripped = m.startsWith("@") ? m.slice(1) : m;
+        if (/\s/.test(stripped)) return `@"${stripped}"`;
+        return `@${stripped}`;
+      });
     if (mentions.length) trailer.push(mentions.join(" "));
   }
 
@@ -66,6 +83,22 @@ export default function CopyRenderer({
             </span>
           );
         }
+        if (s.kind === "mentionQuoted") {
+          // Render just the name — no @, no quotes, no underline.
+          // Bold on LinkedIn; plain weight on Facebook et al.
+          return (
+            <span
+              key={i}
+              className="tok-mention"
+              style={{
+                color: accent,
+                fontWeight: mentionBold ? 700 : 500,
+              }}
+            >
+              {s.name}
+            </span>
+          );
+        }
         if (s.kind === "mention") {
           return (
             <span
@@ -73,8 +106,7 @@ export default function CopyRenderer({
               className="tok-mention"
               style={{
                 color: accent,
-                fontWeight: 500,
-                textDecoration: "underline",
+                fontWeight: mentionBold ? 700 : 500,
               }}
             >
               {s.value}
@@ -82,8 +114,13 @@ export default function CopyRenderer({
           );
         }
         if (s.kind === "url") {
+          // Links get underline to differentiate from mentions.
           return (
-            <span key={i} className="tok-url" style={{ color: accent }}>
+            <span
+              key={i}
+              className="tok-url"
+              style={{ color: accent, textDecoration: "underline" }}
+            >
               {s.value}
             </span>
           );

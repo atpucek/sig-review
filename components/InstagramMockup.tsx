@@ -5,13 +5,7 @@ import type { Post } from "@/lib/types";
 import Avatar from "./Avatar";
 import CopyRenderer from "./CopyRenderer";
 
-export default function InstagramMockup({
-  post,
-  avatarSrc,
-}: {
-  post: Post;
-  avatarSrc: string | null;
-}) {
+export default function InstagramMockup({ post }: { post: Post }) {
   const [slide, setSlide] = useState(0);
   const images = post.media.filter((m) => m.kind === "image");
   const video = post.media.find((m) => m.kind === "video");
@@ -33,7 +27,7 @@ export default function InstagramMockup({
           borderBottom: "1px solid #efefef",
         }}
       >
-        <Avatar src={avatarSrc} size={34} />
+        <Avatar size={34} />
         <div style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>SIG.ORG</div>
         <div style={{ fontSize: 18, color: "#262626", lineHeight: 1 }}>⋯</div>
       </div>
@@ -47,12 +41,32 @@ export default function InstagramMockup({
           overflow: "hidden",
         }}
       >
-        {post.format === "video" && video?.src ? (
-          <video
-            src={video.src}
-            controls
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
+        {post.format === "video" && (video?.src || video?.link) ? (
+          video?.src ? (
+            <video
+              src={video.src}
+              controls
+              playsInline
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                background: "#000",
+                color: "#fff",
+                fontSize: 11,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 20,
+                textAlign: "center",
+              }}
+            >
+              (Instagram requires an uploaded video, not a link)
+            </div>
+          )
         ) : post.format === "text" || !current ? (
           <div
             style={{

@@ -3,15 +3,10 @@
 import type { Post } from "@/lib/types";
 import Avatar from "./Avatar";
 import CopyRenderer from "./CopyRenderer";
+import VideoPlayer from "./VideoPlayer";
 import { formatDate } from "@/lib/text";
 
-export default function NetworkedMockup({
-  post,
-  avatarSrc,
-}: {
-  post: Post;
-  avatarSrc: string | null;
-}) {
+export default function NetworkedMockup({ post }: { post: Post }) {
   const images = post.media.filter((m) => m.kind === "image");
   const video = post.media.find((m) => m.kind === "video");
 
@@ -26,7 +21,7 @@ export default function NetworkedMockup({
           gap: 12,
         }}
       >
-        <Avatar src={avatarSrc} />
+        <Avatar />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>SIG</div>
           <div style={{ fontSize: 12, color: "#5a6475" }}>
@@ -115,23 +110,7 @@ export default function NetworkedMockup({
           ))}
         </div>
       )}
-      {post.format === "video" && (
-        <div
-          style={{
-            position: "relative",
-            background: "#000",
-            aspectRatio: "16 / 9",
-          }}
-        >
-          {video?.src ? (
-            <video
-              src={video.src}
-              controls
-              style={{ width: "100%", height: "100%", objectFit: "contain" }}
-            />
-          ) : null}
-        </div>
-      )}
+      {post.format === "video" && video && <VideoPlayer video={video} />}
 
       {/* Footer */}
       <div

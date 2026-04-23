@@ -13,17 +13,11 @@ const LABELS: Record<Platform, string> = {
   networked: "Networked",
 };
 
-/**
- * Renders all selected platform mockups side by side for a single post.
- * On narrow screens, they wrap.
- */
 export default function PostMockups({
   post,
-  avatarSrc,
   compact = false,
 }: {
   post: Post;
-  avatarSrc: string | null;
   compact?: boolean;
 }) {
   const platforms = post.platforms;
@@ -44,7 +38,6 @@ export default function PostMockups({
     );
   }
 
-  // When compact (builder panel with many platforms), limit column width
   const gap = compact ? 14 : 20;
   const minCol = compact && platforms.length > 1 ? 280 : 360;
 
@@ -60,22 +53,22 @@ export default function PostMockups({
       {platforms.map((p) => (
         <div key={p} className="mockup-col">
           <div className="mockup-col-label">{LABELS[p]}</div>
-          {renderFor(p, post, avatarSrc)}
+          {renderFor(p, post)}
         </div>
       ))}
     </div>
   );
 }
 
-function renderFor(platform: Platform, post: Post, avatarSrc: string | null) {
+function renderFor(platform: Platform, post: Post) {
   switch (platform) {
     case "linkedin":
-      return <LinkedInMockup post={post} avatarSrc={avatarSrc} />;
+      return <LinkedInMockup post={post} />;
     case "facebook":
-      return <FacebookMockup post={post} avatarSrc={avatarSrc} />;
+      return <FacebookMockup post={post} />;
     case "instagram":
-      return <InstagramMockup post={post} avatarSrc={avatarSrc} />;
+      return <InstagramMockup post={post} />;
     case "networked":
-      return <NetworkedMockup post={post} avatarSrc={avatarSrc} />;
+      return <NetworkedMockup post={post} />;
   }
 }

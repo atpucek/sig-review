@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { upload } from "@vercel/blob/client";
 import type { MediaItem } from "@/lib/types";
 
-const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8MB per file
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB per image
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200MB per video
 
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -20,32 +22,67 @@ export default function MediaUploader({
   accept,
   onChange,
   label,
+  mode,
 }: {
   media: MediaItem[];
   multiple?: boolean;
   accept: string;
   onChange: (next: MediaItem[]) => void;
   label: string;
+  mode: "image" | "video";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
+
     const incoming: MediaItem[] = [];
+
     for (const file of Array.from(files)) {
-      if (file.size > MAX_FILE_BYTES) {
-        alert(
-          `"${file.name}" is larger than 8MB. Please use a smaller image.`
-        );
+      const isVideo =
+        mode === "video" || file.type.startsWith("video/");
+      const limit = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+      if (file.size > limit) {
+        const mb = Math.round(limit / 1024 / 1024);
+        alert(`"${file.name}" is larger than ${mb}MB.`);
         continue;
       }
-      const src = await readAsDataUrl(file);
-      incoming.push({
-        kind: file.type.startsWith("video/") ? "video" : "image",
-        src,
-        name: file.name,
-      });
+
+      if (isVideo) {
+        // Direct browser-to-blob upload. Stored as a public URL.
+        setUploading(true);
+        setProgress(0);
+        try {
+          const blob = await upload(file.name, file, {
+            access: "public",
+            handleUploadUrl: "/api/blob/upload",
+            onUploadProgress: (e) => setProgress(Math.round(e.percentage)),
+          });
+          incoming.push({
+            kind: "video",
+            src: blob.url,
+            name: file.name,
+          });
+        } catch (err) {
+          alert(
+            `Video upload failed: ${(err as Error).message}\n\nIf Vercel Blob isn't set up yet, configure it in the Vercel dashboard or paste a YouTube/Vimeo link instead.`
+          );
+        } finally {
+          setUploading(false);
+          setProgress(0);
+        }
+      } else {
+        const src = await readAsDataUrl(file);
+        incoming.push({
+          kind: "image",
+          src,
+          name: file.name,
+        });
+      }
     }
+
     if (incoming.length === 0) return;
     onChange(multiple ? [...media, ...incoming] : incoming);
     if (inputRef.current) inputRef.current.value = "";
@@ -65,15 +102,23 @@ export default function MediaUploader({
     onChange(next);
   }
 
+  const sizeHint =
+    mode === "video" ? "max 200MB (MP4/MOV/WebM)" : "max 8MB each";
+
   return (
     <div>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <button
           type="button"
           className="btn"
+          disabled={uploading}
           onClick={() => inputRef.current?.click()}
         >
-          {media.length > 0 ? "+ Add more" : label}
+          {uploading
+            ? `Uploading… ${progress}%`
+            : media.length > 0
+            ? "+ Add more"
+            : label}
         </button>
         <input
           ref={inputRef}
@@ -83,11 +128,11 @@ export default function MediaUploader({
           style={{ display: "none" }}
           onChange={(e) => handleFiles(e.target.files)}
         />
-        {media.length > 0 && (
-          <span className="muted" style={{ fontSize: 12 }}>
-            {media.length} {media.length === 1 ? "file" : "files"} — max 8MB each
-          </span>
-        )}
+        <span className="muted" style={{ fontSize: 12 }}>
+          {media.length > 0
+            ? `${media.length} ${media.length === 1 ? "file" : "files"} · ${sizeHint}`
+            : sizeHint}
+        </span>
       </div>
 
       {media.length > 0 && (

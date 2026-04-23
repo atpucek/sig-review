@@ -78,11 +78,26 @@ export default function PostEditor({
     if (channels.some((c) => c.includes("instagram") || c === "ig")) platforms.push("instagram");
     if (channels.some((c) => c.includes("networked"))) platforms.push("networked");
 
+    // Auto-extract hashtags from copy
+    const copyText = src.copy || "";
+    const hashtagMatches = copyText.match(/#[A-Za-z0-9_]+/g) || [];
+    const mergedHashtags = Array.from(
+      new Set([
+        ...post.hashtags
+          .split(/[\s,]+/)
+          .map((t) => t.trim())
+          .filter(Boolean)
+          .map((t) => (t.startsWith("#") ? t : `#${t}`)),
+        ...hashtagMatches,
+      ])
+    ).join(" ");
+
     patch({
       sourceRowId: src.rowId,
       sourceSheet: "organic",
-      copy: src.copy || "",
+      copy: copyText,
       publishDate: src.publishDate || post.publishDate,
+      hashtags: mergedHashtags,
       platforms: platforms.length ? platforms : post.platforms,
       media: src.imageUrl
         ? [{ kind: "image" as const, src: src.imageUrl, name: src.name }]
@@ -207,7 +222,7 @@ export default function PostEditor({
               {filteredPosts.map((p) => (
                 <option key={p.rowId} value={p.rowId}>
                   {p.name}
-                  {p.publishDate ? ` (${p.publishDate})` : ""}
+                  {p.publishDate ? ` — ${p.publishDate}` : ""}
                 </option>
               ))}
             </select>
@@ -271,6 +286,7 @@ export default function PostEditor({
               accept="image/jpeg,image/png,image/webp,image/gif"
               onChange={(next) => patch({ media: next })}
               label="Upload image"
+              mode="image"
             />
           )}
           {post.format === "carousel" && (
@@ -280,6 +296,7 @@ export default function PostEditor({
               accept="image/jpeg,image/png,image/webp,image/gif"
               onChange={(next) => patch({ media: next })}
               label="Upload images"
+              mode="image"
             />
           )}
           {post.format === "video" && (
@@ -288,11 +305,9 @@ export default function PostEditor({
                 media={post.media.filter((m) => m.kind === "video").slice(0, 1)}
                 multiple={false}
                 accept="video/mp4,video/quicktime,video/webm"
-                onChange={(next) => {
-                  // preserve images for thumbnail fallback? For simplicity just set video
-                  patch({ media: next });
-                }}
+                onChange={(next) => patch({ media: next })}
                 label="Upload video file"
+                mode="video"
               />
               <div style={{ fontSize: 12, color: "#71717a" }}>
                 Or paste a YouTube/Vimeo link:

@@ -35,7 +35,6 @@ export type Preview = {
   campaign: string;
   subCampaign: string;
   preparedBy: string;
-  avatarDataUrl: string | null;
   posts: Post[];
   createdAt: string;
   updatedAt: string;

@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const cols = sheet.columns || [];
 
     const ci = {
-      campaign: findColId(cols, ["campaign", "event"]),
+      campaign: findColId(cols, ["main campaign", "campaign", "event"]),
       subcampaign: findColId(cols, [
         "sub-campaign",
         "sub campaign",
@@ -113,6 +113,14 @@ export async function GET(request: NextRequest) {
         permalink: row.permalink || null,
       });
     }
+
+    // Sort by publish date descending (most recent first); undated rows last
+    posts.sort((a, b) => {
+      if (!a.publishDate && !b.publishDate) return 0;
+      if (!a.publishDate) return 1;
+      if (!b.publishDate) return -1;
+      return b.publishDate.localeCompare(a.publishDate);
+    });
 
     return Response.json({ posts });
   } catch (e) {
