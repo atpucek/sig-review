@@ -12,8 +12,16 @@ import type { Preview, PreviewSummary } from "./types";
  * .data/previews.json in the project root.
  */
 
-const hasKv =
-  !!process.env.KV_REST_API_URL && !!process.env.KV_REST_API_TOKEN;
+// Accept either Vercel KV naming (KV_REST_API_*) or the newer
+// Upstash-via-Marketplace naming (UPSTASH_REDIS_REST_*). Whichever is set,
+// we wire @vercel/kv's createClient to those credentials explicitly.
+const KV_URL =
+  process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+const KV_TOKEN =
+  process.env.KV_REST_API_TOKEN ||
+  process.env.UPSTASH_REDIS_REST_TOKEN ||
+  "";
+const hasKv = !!KV_URL && !!KV_TOKEN;
 const onVercel = !!process.env.VERCEL;
 
 function requireKvMessage(): never {
@@ -26,7 +34,13 @@ function requireKvMessage(): never {
 
 async function kvClient() {
   const mod = await import("@vercel/kv");
-  return mod.kv;
+  // If the standard KV_REST_API_* vars are set, the default `kv` singleton
+  // already works. Otherwise (Marketplace Upstash), build a client with the
+  // UPSTASH_REDIS_REST_* credentials.
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    return mod.kv;
+  }
+  return mod.createClient({ url: KV_URL, token: KV_TOKEN });
 }
 
 const KV_INDEX_KEY = "previews:index";
