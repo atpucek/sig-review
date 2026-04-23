@@ -29,7 +29,26 @@ export default async function PreviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const preview = await getPreview(id);
+  let preview;
+  try {
+    preview = await getPreview(id);
+  } catch (e) {
+    return (
+      <main
+        style={{
+          maxWidth: 560,
+          margin: "80px auto",
+          padding: "24px",
+          textAlign: "center",
+        }}
+      >
+        <h1 style={{ fontSize: 22, margin: "0 0 12px" }}>
+          Preview temporarily unavailable
+        </h1>
+        <p style={{ color: "var(--text-muted)" }}>{(e as Error).message}</p>
+      </main>
+    );
+  }
   if (!preview) notFound();
 
   const headerCampaign = preview.subCampaign || preview.campaign || "";
