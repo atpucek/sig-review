@@ -300,22 +300,11 @@ export default function PostEditor({
             />
           )}
           {post.format === "video" && (
-            <div className="col">
-              <MediaUploader
-                media={post.media.filter((m) => m.kind === "video").slice(0, 1)}
-                multiple={false}
-                accept="video/mp4,video/quicktime,video/webm"
-                onChange={(next) => patch({ media: next })}
-                label="Upload video file"
-                mode="video"
-              />
-              <div style={{ fontSize: 12, color: "#71717a" }}>
-                Or paste a YouTube/Vimeo link:
-              </div>
+            <div className="col" style={{ gap: 10 }}>
               <input
                 type="url"
                 className="input"
-                placeholder="https://www.youtube.com/watch?v=…"
+                placeholder="https://vimeo.com/… or https://youtu.be/…"
                 value={post.media.find((m) => m.kind === "video")?.link || ""}
                 onChange={(e) => {
                   const link = e.target.value;
@@ -329,9 +318,48 @@ export default function PostEditor({
                     patch({
                       media: [...post.media, { kind: "video", src: "", link }],
                     });
+                  } else {
+                    patch({
+                      media: post.media.filter((m) => m.kind !== "video"),
+                    });
                   }
                 }}
               />
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#71717a",
+                  lineHeight: 1.5,
+                }}
+              >
+                Paste a Vimeo or YouTube URL — the preview embeds it inline.
+                For Vimeo set the video to <strong>&ldquo;Only people with the
+                private link&rdquo;</strong>, or for YouTube set it to{" "}
+                <strong>Unlisted</strong>.
+              </div>
+              <details style={{ marginTop: 4 }}>
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    fontSize: 12,
+                    color: "#71717a",
+                  }}
+                >
+                  Or upload a video file directly
+                </summary>
+                <div style={{ marginTop: 8 }}>
+                  <MediaUploader
+                    media={post.media
+                      .filter((m) => m.kind === "video" && !m.link)
+                      .slice(0, 1)}
+                    multiple={false}
+                    accept="video/mp4,video/quicktime,video/webm"
+                    onChange={(next) => patch({ media: next })}
+                    label="Upload video file"
+                    mode="video"
+                  />
+                </div>
+              </details>
             </div>
           )}
         </div>

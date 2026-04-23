@@ -124,10 +124,25 @@ function toEmbedUrl(link: string): string | null {
       const shortsMatch = u.pathname.match(/\/shorts\/([^/]+)/);
       if (shortsMatch) return `https://www.youtube.com/embed/${shortsMatch[1]}`;
     }
-    // Vimeo
+    // Vimeo — handles public URLs, private-link URLs (with hash), and
+    // already-embedded player URLs.
+    // Examples:
+    //   https://vimeo.com/123456789
+    //   https://vimeo.com/123456789/abcd1234ef  (private link, hash is path segment)
+    //   https://player.vimeo.com/video/123456789?h=abcd1234ef
     if (u.hostname.includes("vimeo.com")) {
-      const id = u.pathname.replace(/^\//, "").split("/")[0];
-      if (/^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
+      if (u.hostname.startsWith("player.")) {
+        // Already a player URL; return as-is
+        return link;
+      }
+      const segments = u.pathname.replace(/^\//, "").split("/");
+      const id = segments[0];
+      const hash = segments[1];
+      if (/^\d+$/.test(id)) {
+        return hash
+          ? `https://player.vimeo.com/video/${id}?h=${hash}`
+          : `https://player.vimeo.com/video/${id}`;
+      }
     }
     return null;
   } catch {
